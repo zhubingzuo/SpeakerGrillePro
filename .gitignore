@@ -1,0 +1,22 @@
+# Build output
+bin/
+*.dll
+*.tlb
+*.pdb
+
+# Logs
+*.log
+install_log.txt
+
+# RegAsm output
+regasm_*.txt
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+
+# Windows
+Thumbs.db
+Desktop.ini
