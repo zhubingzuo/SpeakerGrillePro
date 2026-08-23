@@ -1,8 +1,8 @@
 # SpeakerGrillePro
 
-> SOLIDWORKS 2025 SP5 喇叭孔自动生成插件 · Speaker Grille Auto-Generation Add-in for SOLIDWORKS
+> SOLIDWORKS 喇叭孔自动生成插件 · Speaker Grille Auto-Generation Add-in for SOLIDWORKS
 
-一个面向 **SOLIDWORKS 2025 SP5** 的喇叭孔（扬声器网罩孔）自动生成插件。用户在目标模型平面上放置一个**草图点**即可精确定位孔区中心，插件自动生成多种孔型并自动完成 **Cut-Extrude** 切除。
+一个面向 **SOLIDWORKS** 的喇叭孔（扬声器网罩孔）自动生成插件。用户在目标模型平面上放置一个**草图点**即可精确定位孔区中心，插件自动生成多种孔型并自动完成 **Cut-Extrude** 切除。
 
 - 🎯 7 种孔型：圆孔六角错列 / 真蜂窝 / 圆孔方阵 / 方孔 / 菱形孔 / 三角孔 / 同心声波孔
 - 📍 草图点精确定位孔区中心（配合 SOLIDWORKS 尺寸约束）
