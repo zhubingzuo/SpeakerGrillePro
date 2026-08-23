@@ -80,7 +80,23 @@ try {
     $src1 = Join-Path $root 'src\SpeakerGrillePro.cs'
     $src2 = Join-Path $root 'src\Properties\AssemblyInfo.cs'
     $snk = Join-Path $root 'src\SpeakerGrillePro.snk'
-    if (-not (Test-Path -LiteralPath $snk)) { Fail 'Strong-name key SpeakerGrillePro.snk was not found.' 13 }
+    if (-not (Test-Path -LiteralPath $snk)) {
+        # The strong-name key is intentionally NOT kept in the public repository.
+        # Generate a fresh one with pure .NET Framework (CAPI AT_SIGNATURE key,
+        # same format as sn.exe -k) so one-click install works on any machine.
+        Write-Host '  Strong-name key not found. Generating a new one...' -ForegroundColor Yellow
+        try {
+            $csp = New-Object System.Security.Cryptography.CspParameters
+            $csp.KeyNumber = 2  # AT_SIGNATURE, same key type as sn.exe -k
+            $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider(2048, $csp)
+            [System.IO.File]::WriteAllBytes($snk, $rsa.ExportCspBlob($true))
+            $rsa.Dispose()
+        } catch {
+            Fail ('Failed to generate a new strong-name key: ' + $_.Exception.Message) 13
+        }
+        if (-not (Test-Path -LiteralPath $snk)) { Fail 'Failed to generate a new strong-name key.' 13 }
+        Write-Host '  New strong-name key generated.' -ForegroundColor Green
+    }
     $args = @(
         '/nologo', '/target:library', '/platform:x64', '/optimize+', '/langversion:5',
         ('/out:"' + $dll + '"'),
