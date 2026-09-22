@@ -57,6 +57,9 @@
 - **不入库、仅本地保留**：`src\SpeakerGrillePro.snk`（强名称私钥）与 `bin\*.dll`（17 个 SolidWorks Interop
   引用 + 构建产物）。公开仓库不重分发专有 Interop 程序集，新克隆的机器从自己的 SOLIDWORKS 安装目录取。
 - `bin\SpeakerGrillePro.dll` 已由编译验证重新生成（构建产物，已忽略）。
+- `README.md` 已改写为**版本无关**框架（`# SpeakerGrillePro`，标题不再限定版本号，版本历史集中在文末），
+  功能/参数/默认值/校验规则均对照源码 `GrilleDialog` 与 `one_click_install.ps1` 校正；
+  GitHub 仓库描述已由 `7 patterns` 更新为 `8 patterns`。
 - 本机 SOLIDWORKS 2025（`33.5.0.0053`）已安装于 `D:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\`。
 - 编译链路已验证可用；**v27.4 尚未做安装后的实机功能验收**。
 
@@ -64,6 +67,8 @@
 
 - [ ] 关闭 SOLIDWORKS 后跑一次 `一键安装.bat`，完成 v27.4 实机验收（重点：3Dconnexion/SpaceMouse 不再失效、启动无弹窗、喇叭图标正常）。
 - [ ] 实机验证 8 种孔型的边界与对称性，特别是第 7 种同心声波的最小肉厚约束是否生效。
+- [ ] **`one_click_install.ps1` 硬编码了 SOLIDWORKS 路径**（`D:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SLDWORKS.exe`，
+      找不到即 exit 10），应改为多磁盘 / 注册表搜索；否则换机器的用户无法一键安装。
 - [ ] 决定是否把 `build.ps1` 的 Interop 探测扩展为多磁盘/全注册表搜索，使其在本机开箱可用。
 - [ ] 是否恢复原仓库的 `docs\LOG.md`（会话历史存档）惯例：原始内容已归档在 `_old_repo_archive\docs\LOG.md`，目前**未**纳入仓库。
 - [ ] 若后续需要版本迭代，建议在 README.md 中继续沿用“版本号 + 改动说明”的写法。
