@@ -1,7 +1,7 @@
 # HANDOFF.md — SpeakerGrillePro
 
 > 最近更新：发布到 GitHub（强制替换 v24 历史）+ 仓库根扁平化
-> 最新 commit：`<待回填>`
+> 最新 commit：`c962615` — 项目初始化
 
 ## 任务目标
 
