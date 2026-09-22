@@ -1,0 +1,29 @@
+# Build output
+bin/
+obj/
+*.dll
+*.tlb
+*.pdb
+
+# Strong-name private key（仅本地保留；安装器在缺失时会自动生成新密钥）
+src/*.snk
+
+# Logs
+*.log
+install_log.txt
+
+# RegAsm output
+regasm_*.txt
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+
+# NuGet
+packages/
+
+# Windows
+Thumbs.db
+Desktop.ini
