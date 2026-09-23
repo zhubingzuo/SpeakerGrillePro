@@ -1,5 +1,12 @@
-﻿$ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+﻿param(
+    # Optional: full path to SLDWORKS.exe, or to a SOLIDWORKS install folder.
+    # Only needed when automatic discovery fails.
+    [string]$SolidWorksPath = ''
+)
+
+$ErrorActionPreference = 'Stop'
+$root = $PSScriptRoot
+if (-not $root) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }
 Set-Location $root
 $log = Join-Path $root 'install_log.txt'
 Start-Transcript -Path $log -Force | Out-Null
@@ -18,10 +25,83 @@ try {
     Write-Host '============================================================'
     Write-Host ''
 
-    $swExe = 'D:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SLDWORKS.exe'
-    if (-not (Test-Path -LiteralPath $swExe)) { Fail "SOLIDWORKS was not found at $swExe" 10 }
+    # ---------- SOLIDWORKS discovery (no hard-coded drive or path) ----------
+    function Get-FixedDrives {
+        $drives = @()
+        try {
+            $drives = @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+                        Where-Object { $_.Root -match '^[A-Za-z]:\\$' } |
+                        Select-Object -ExpandProperty Root)
+        } catch { $drives = @() }
+        if ($drives.Count -eq 0) { $drives = @('C:\') }
+        return $drives
+    }
+
+    function Get-SwRootCandidates([string]$Override) {
+        $list = New-Object System.Collections.Generic.List[string]
+
+        # 1) Explicit override: -SolidWorksPath <path> or %SPEAKERGRILLE_SW_EXE%.
+        if ($Override) { $list.Add($Override) }
+        if ($env:SPEAKERGRILLE_SW_EXE) { $list.Add($env:SPEAKERGRILLE_SW_EXE) }
+
+        # 2) Registry: SOLIDWORKS records its install folder per release year.
+        foreach ($regRoot in @('HKLM:\SOFTWARE\SolidWorks', 'HKLM:\SOFTWARE\WOW6432Node\SolidWorks')) {
+            if (-not (Test-Path -LiteralPath $regRoot)) { continue }
+            $years = @(Get-ChildItem -LiteralPath $regRoot -ErrorAction SilentlyContinue |
+                       Where-Object { $_.PSChildName -like 'SOLIDWORKS 20*' })
+            foreach ($year in $years) {
+                $setup = Join-Path $year.PSPath 'Setup'
+                if (-not (Test-Path -LiteralPath $setup)) { continue }
+                $props = $null
+                try { $props = Get-ItemProperty -LiteralPath $setup -ErrorAction Stop } catch { continue }
+                foreach ($name in @('SolidWorksFolder', 'InstallDir', 'Path')) {
+                    $value = $props.$name
+                    if ($value) { $list.Add([string]$value) }
+                }
+            }
+        }
+
+        # 3) Usual locations on every fixed drive, plus one level under SOLIDWORKS Corp.
+        foreach ($drive in (Get-FixedDrives)) {
+            foreach ($sub in @('Program Files\SOLIDWORKS Corp\SOLIDWORKS',
+                               'Program Files (x86)\SOLIDWORKS Corp\SOLIDWORKS',
+                               'SOLIDWORKS Corp\SOLIDWORKS')) {
+                $list.Add((Join-Path $drive $sub))
+            }
+            foreach ($pf in @('Program Files', 'Program Files (x86)')) {
+                $corp = Join-Path $drive (Join-Path $pf 'SOLIDWORKS Corp')
+                if (-not (Test-Path -LiteralPath $corp)) { continue }
+                Get-ChildItem -LiteralPath $corp -Directory -ErrorAction SilentlyContinue |
+                    ForEach-Object { $list.Add($_.FullName) }
+            }
+        }
+        return $list
+    }
+
+    function Find-SwExe([string]$Override) {
+        foreach ($candidate in (Get-SwRootCandidates -Override $Override | Select-Object -Unique)) {
+            if (-not $candidate) { continue }
+            if ($candidate -match '\.exe$') {
+                if (Test-Path -LiteralPath $candidate) { return (Resolve-Path -LiteralPath $candidate).Path }
+                continue
+            }
+            foreach ($tail in @('SLDWORKS.exe', 'SOLIDWORKS\SLDWORKS.exe')) {
+                $exe = Join-Path $candidate $tail
+                if (Test-Path -LiteralPath $exe) { return (Resolve-Path -LiteralPath $exe).Path }
+            }
+        }
+        return $null
+    }
+
+    $swExe = Find-SwExe -Override $SolidWorksPath
+    if (-not $swExe) {
+        Fail 'SOLIDWORKS (SLDWORKS.exe) could not be located automatically. Install SOLIDWORKS, or pass the path explicitly: powershell -ExecutionPolicy Bypass -File one_click_install.ps1 -SolidWorksPath "X:\...\SLDWORKS.exe"' 10
+    }
     $swRoot = Split-Path -Parent $swExe
+    $swVersion = ''
+    try { $swVersion = (Get-Item -LiteralPath $swExe).VersionInfo.ProductVersion } catch { }
     Write-Host ('[1/5] SOLIDWORKS: ' + $swExe)
+    if ($swVersion) { Write-Host ('  Version      = ' + $swVersion) }
 
     # v27.4: registration/build must be performed with SOLIDWORKS closed.
     # Do NOT terminate it automatically: this prevents data loss and avoids changing
@@ -46,11 +126,19 @@ try {
                 if (Test-Path -LiteralPath $p) { return (Resolve-Path -LiteralPath $p).Path }
             }
         }
-        $corpRoot = 'D:\Program Files\SOLIDWORKS Corp'
-        if (Test-Path -LiteralPath $corpRoot) {
-            $hit = Get-ChildItem -LiteralPath $corpRoot -Filter $name -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($hit) { return $hit.FullName }
+        # Fallback: search every fixed drive's SOLIDWORKS Corp folder.
+        foreach ($drive in (Get-FixedDrives)) {
+            foreach ($pf in @('Program Files', 'Program Files (x86)')) {
+                $corpRoot = Join-Path $drive (Join-Path $pf 'SOLIDWORKS Corp')
+                if (-not (Test-Path -LiteralPath $corpRoot)) { continue }
+                $hit = Get-ChildItem -LiteralPath $corpRoot -Filter $name -File -Recurse -ErrorAction SilentlyContinue |
+                       Select-Object -First 1
+                if ($hit) { return $hit.FullName }
+            }
         }
+        # Last resort: reuse the copy a previous install left beside our DLL.
+        $localCopy = Join-Path (Join-Path $root 'bin') $name
+        if (Test-Path -LiteralPath $localCopy) { return (Resolve-Path -LiteralPath $localCopy).Path }
         return $null
     }
 
@@ -82,7 +170,25 @@ try {
     $src1 = Join-Path $root 'src\SpeakerGrillePro.cs'
     $src2 = Join-Path $root 'src\Properties\AssemblyInfo.cs'
     $snk = Join-Path $root 'src\SpeakerGrillePro.snk'
-    if (-not (Test-Path -LiteralPath $snk)) { Fail 'Strong-name key SpeakerGrillePro.snk was not found.' 13 }
+    if (-not (Test-Path -LiteralPath $snk)) {
+        # The strong-name private key is intentionally NOT kept in the public repository.
+        # Generate a fresh one with pure .NET Framework (CAPI AT_SIGNATURE key, the same
+        # format sn.exe -k produces) so one-click install works on any machine.
+        Write-Host '  Strong-name key not found. Generating a new one...' -ForegroundColor Yellow
+        $srcDir = Split-Path -Parent $snk
+        if (-not (Test-Path -LiteralPath $srcDir)) { New-Item -ItemType Directory -Path $srcDir | Out-Null }
+        try {
+            $csp = New-Object System.Security.Cryptography.CspParameters
+            $csp.KeyNumber = 2  # AT_SIGNATURE, same key type as sn.exe -k
+            $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider(2048, $csp)
+            [System.IO.File]::WriteAllBytes($snk, $rsa.ExportCspBlob($true))
+            $rsa.Dispose()
+        } catch {
+            Fail ('Failed to generate a new strong-name key: ' + $_.Exception.Message) 13
+        }
+        if (-not (Test-Path -LiteralPath $snk)) { Fail 'Failed to generate a new strong-name key.' 13 }
+        Write-Host '  New strong-name key generated.' -ForegroundColor Green
+    }
     $args = @(
         '/nologo', '/target:library', '/platform:x64', '/optimize+', '/langversion:5',
         ('/out:"' + $dll + '"'),

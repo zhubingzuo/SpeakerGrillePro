@@ -70,10 +70,12 @@ SOLIDWORKS 插件（Add-in），在选定的平面/面上按 8 种阵列样式�
 
 产物：`bin\SpeakerGrillePro.dll`。
 
-> ⚠️ `build.ps1` 的 Interop 自动探测**在本机不可用**：它只搜索 `%ProgramFiles%`（C 盘）与注册表
-> `HKLM:\SOFTWARE\SolidWorks\SOLIDWORKS 2025\Setup`，而本机 SOLIDWORKS 装在 `D:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\`，
-> 且上述注册表键不存在，脚本会以 `ERROR: SOLIDWORKS interop DLLs were not found automatically.` 退出（exit 1）。
-> 需要脚本方式时用 `build_manual.ps1` 手动粘贴三个 DLL 路径，或直接使用上面的 MSBuild 命令。
+> ✅ `build.bat` / `build.ps1` 亦可直接使用（已去硬编码）：Interop 探测覆盖全部固定磁盘与任意
+> `SOLIDWORKS 20xx` 注册表年份；MSBuild 候选依次尝试，会自动回退到能容忍缺少 .NET 4.0 目标包的
+> `Framework64\v4.0.30319\MSBuild.exe`。需要手动指定时用 `build_manual.ps1`。
+>
+> 安装器侧同理：`one_click_install.ps1` 自动探测 SOLIDWORKS，可用 `-SolidWorksPath <exe|目录>`
+> 或环境变量 `SPEAKERGRILLE_SW_EXE` 覆盖；`src\SpeakerGrillePro.snk` 缺失时会自动生成。
 
 ### 安装 / 卸载（需管理员权限）
 

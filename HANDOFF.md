@@ -32,9 +32,10 @@
 - 已知无害警告：`warning MSB3644`（未找到 .NETFramework v4.0 目标包，回退到 GAC 引用程序集），可忽略。
 - 在 Git Bash 中执行时需加 `MSYS_NO_PATHCONV=1`，否则 `/t:`、`/p:` 会被 MSYS 改写成路径。
 
-`build.bat` / `build.ps1` **在本机不可用**：其 Interop 自动探测只搜索 C 盘与注册表
-`HKLM:\SOFTWARE\SolidWorks\SOLIDWORKS 2025\Setup`（该键不存在），而本机 SOLIDWORKS 装在 D 盘，
-脚本会以 exit 1 报 `interop DLLs were not found automatically`。备用方案：`build_manual.ps1` 手动粘贴路径。
+`build.bat` / `build.ps1` 现已可用（本机 exit 0）：Interop 探测已扩展到全部固定磁盘 + 注册表
+（任意 `SOLIDWORKS 20xx` 年份），并会依次尝试多个 MSBuild——VS Build Tools 的 MSBuild 会把缺少
+.NET 4.0 目标包当成硬错误 `MSB3644`，脚本会自动回退到 .NET Framework 自带的 MSBuild 并成功编译。
+备用方案仍为 `build_manual.ps1`（手动粘贴 Interop 路径）。
 
 ### 2. 实机验收（需人工）
 
@@ -61,15 +62,24 @@
   功能/参数/默认值/校验规则均对照源码 `GrilleDialog` 与 `one_click_install.ps1` 校正；
   GitHub 仓库描述已由 `7 patterns` 更新为 `8 patterns`。
 - 本机 SOLIDWORKS 2025（`33.5.0.0053`）已安装于 `D:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\`。
+- **安装器与构建脚本已去硬编码**（本轮）：
+  - `one_click_install.ps1`：多磁盘 + 注册表自动探测 SOLIDWORKS；未找到时给出可操作提示（exit 10）；
+    支持 `-SolidWorksPath <exe 或目录>` 与环境变量 `SPEAKERGRILLE_SW_EXE` 覆盖；
+    **恢复了强名称密钥自动生成**（缺 `src\SpeakerGrillePro.snk` 时用 CAPI `AT_SIGNATURE` 生成）。
+    已实测：探测函数能正确找到本机 D 盘 SOLIDWORKS 与三个 Interop DLL；生成的 .snk 为 1172 字节
+    （与出厂密钥同格式），csc 接受并签出强名称程序集。
+  - `build.ps1`：Interop 探测扩展至全部固定磁盘 + 任意年份注册表；MSBuild 候选改为依次尝试。
+    已实测 exit 0：VS MSBuild 失败后自动回退到 `Framework64\v4.0.30319\MSBuild.exe` 成功编译。
 - 编译链路已验证可用；**v27.4 尚未做安装后的实机功能验收**。
 
 ## 下一步 TODO
 
 - [ ] 关闭 SOLIDWORKS 后跑一次 `一键安装.bat`，完成 v27.4 实机验收（重点：3Dconnexion/SpaceMouse 不再失效、启动无弹窗、喇叭图标正常）。
 - [ ] 实机验证 8 种孔型的边界与对称性，特别是第 7 种同心声波的最小肉厚约束是否生效。
-- [ ] **`one_click_install.ps1` 硬编码了 SOLIDWORKS 路径**（`D:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SLDWORKS.exe`，
-      找不到即 exit 10），应改为多磁盘 / 注册表搜索；否则换机器的用户无法一键安装。
-- [ ] 决定是否把 `build.ps1` 的 Interop 探测扩展为多磁盘/全注册表搜索，使其在本机开箱可用。
+- [ ] 本机以管理员跑一次 `一键安装.bat`，验证改动后的完整安装链路（脚本前 4 步已单独验证，
+      第 5 步 RegAsm 注册需管理员权限，尚未在本轮实执）。
+- [ ] 评估是否把 `csproj` 的 `TargetFrameworkVersion` 由 `v4.0` 改为 `v4.8`：4.0 目标包已不随新版
+      开发工具分发，是 `MSB3644` 的根因（当前靠 MSBuild 回退绕过）。
 - [ ] 是否恢复原仓库的 `docs\LOG.md`（会话历史存档）惯例：原始内容已归档在 `_old_repo_archive\docs\LOG.md`，目前**未**纳入仓库。
 - [ ] 若后续需要版本迭代，建议在 README.md 中继续沿用“版本号 + 改动说明”的写法。
 

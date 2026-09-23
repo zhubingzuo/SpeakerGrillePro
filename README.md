@@ -91,10 +91,15 @@
 | 系统 | Windows 10/11 x64，安装需要管理员权限 |
 | 注册 | 64 位 `RegAsm.exe` + Strong Name 签名 |
 
-> ⚠️ **当前一键安装脚本硬编码了 SOLIDWORKS 路径**：`one_click_install.ps1` 期望
-> `D:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SLDWORKS.exe`，找不到即报错退出（exit 10）。
-> 如果你的 SOLIDWORKS 装在别处，请改用 `build_manual.ps1`（手动指定 Interop 路径编译）
-> + `install_admin.bat`（注册），或修改脚本里的 `$swExe`。
+> 🔍 **SOLIDWORKS 位置自动探测**：安装器与 `build.ps1` 不再写死盘符，会依次尝试注册表
+> （`HKLM\SOFTWARE\SolidWorks\SOLIDWORKS 20xx\Setup`，含 32/64 位视图）与各固定磁盘下的
+> `Program Files\SOLIDWORKS Corp` 等常见位置。若自动探测失败，可显式指定：
+>
+> ```bat
+> powershell -ExecutionPolicy Bypass -File one_click_install.ps1 -SolidWorksPath "X:\...\SLDWORKS.exe"
+> ```
+>
+> 也支持环境变量 `SPEAKERGRILLE_SW_EXE`，或直接指向安装目录（而非 exe）。
 
 ---
 
@@ -300,9 +305,10 @@ SpeakerGrillePro                        ← 仓库根 = 项目根
   -v:minimal
 ```
 
-或直接 `build.bat` / `build.ps1`——但它们的 Interop 自动探测只搜索 `%ProgramFiles%`（C 盘）
-与注册表 `HKLM:\SOFTWARE\SolidWorks\SOLIDWORKS 2025\Setup`，SOLIDWORKS 装在别的盘时
-会以 `interop DLLs were not found automatically` 退出，此时用 `build_manual.ps1`。
+或直接 `build.bat` / `build.ps1`。两者都会在所有固定磁盘与注册表中探测 Interop，
+并依次尝试多个 MSBuild：VS Build Tools 的较新 MSBuild 会把“缺少 .NET Framework 4.0 目标包”
+（`MSB3644`）当成硬错误，此时会自动回退到 .NET Framework 自带的 MSBuild（它只当警告并
+改用 GAC 引用程序集），因此有无目标包都能编过。若仍失败，用 `build_manual.ps1` 手动指定路径。
 
 ---
 
@@ -343,6 +349,10 @@ CUT_OK ...
 - 安装器**不再自动启动 SOLIDWORKS**，安装后请从平常的快捷方式正常启动。
 - 安装前检测到 SOLIDWORKS 正在运行会提示先关闭，**不会强制结束进程**。
 - **不再删除**任何其他 / 旧插件的 SOLIDWORKS Add-in 注册项，只注册本插件自己的 GUID。
+- 🔧 **安装器**：自动探测 SOLIDWORKS 安装位置（多磁盘 + 注册表 + 可显式指定），不再硬编码盘符；
+  缺少强名称密钥时自动生成（公开仓库不携带私钥，让 clone 后一键安装可用）。
+- 🔧 **构建脚本**：`build.ps1` 的 Interop 探测扩展到全部固定磁盘，并在缺少 .NET 4.0 目标包时
+  自动回退到 .NET Framework 自带的 MSBuild。
 
 ### v27.3
 - 工具栏「生成喇叭孔」按钮改为蓝色喇叭图标，提供 20/32/40/64/96/128 px 六档 PNG，适配高 DPI 缩放；CommandGroup ID 更新并在加载时清理旧组，避免缓存旧图标。
@@ -372,13 +382,14 @@ CUT_OK ...
 
 ## 🗺️ 后续规划
 
-1. **安装脚本去硬编码**：`one_click_install.ps1` 目前把 SOLIDWORKS 路径写死为 D 盘，应改为多磁盘 / 注册表搜索。
-2. **build.ps1 同理**：Interop 自动探测扩展到多磁盘，使其开箱可用。
-3. **生成前预览**：草图预览确认后再 Cut，避免反复撤销。
-4. **性能优化**：500+ / 1000+ 孔时批量创建 Sketch Segment、暂停刷新、减少 Select 调用。
-5. **自动化测试**：插件依赖 SOLIDWORKS 宿主进程，无法脱离宿主编译期单测；目前以"编译验证 + 实机验收"代替。
+1. **生成前预览**：草图预览确认后再 Cut，避免反复撤销。
+2. **性能优化**：500+ / 1000+ 孔时批量创建 Sketch Segment、暂停刷新、减少 Select 调用。
+3. **自动化测试**：插件依赖 SOLIDWORKS 宿主进程，无法脱离宿主编译期单测；目前以“编译验证 + 实机验收”代替。
+4. **重新评估目标框架**：`csproj` 仍指向 .NET Framework 4.0，而 4.0 目标包已不随新版开发工具分发，
+   是 `MSB3644` 的根因；可考虑改为 v4.8。
 
-已完成（原规划）：样式参数动态 UI（按孔型启用/停用参数）、更严格的 Face 边界检测。
+已完成（原规划）：样式参数动态 UI（按孔型启用/停用参数）、更严格的 Face 边界检测、
+安装脚本与构建脚本去硬编码（多磁盘 / 注册表探测）、安装器自动生成强名称密钥。
 
 ---
 
