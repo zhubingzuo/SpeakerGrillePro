@@ -1,7 +1,7 @@
 # HANDOFF.md — SpeakerGrillePro
 
 > 最近更新：v27.4 实机验收完成（2026-09-23）—— 安装链路与 SOLIDWORKS 内功能均通过
-> 最新 commit：`<本次提交后回填>`
+> 最新 commit：`dc5574a` — docs: 记录 v27.4 实机验收完成
 
 ## 任务目标
 
