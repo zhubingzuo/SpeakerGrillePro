@@ -10,7 +10,7 @@
 | 2026-09-23 | 0f5a08a | 修复 4 个 `.bat` 的 UTF-8 BOM：cmd.exe 按 GBK 解析会把 `@echo off` 变成 `锘緻echo`，导致安装一开始报错且全脚本命令被逐条回显（该缺陷自 v24 起存在） |
 | 2026-09-23 | dc5574a | 记录 v27.4 实机验收完成：安装链路 5 步全过（`Registration verification: OK`），SOLIDWORKS 内正常使用；运行时日志证据 `CONNECT_OK`（静默启动）、`FACE_FILTER 319/319`、`CUT_OK` |
 | 2026-09-23 | 6e6fa91 | 8 种孔型边界/对称性自动化抽查：15 组用例（8 孔型 × 圆角矩形/圆形区域，另含跳孔对称探测）全部 0 边界违规、0 镜像对称违规；验证器自检通过。方法为用真实 `bin\SpeakerGrillePro.dll` 的 `CreateGrille` 配合 RealProxy 桩化 SOLIDWORKS API 并记录每个孔的坐标与半径 |
-| 2026-09-23 | <待回填> | 几何回归验证器并入仓库（`tools/verify/`）：`Harness.cs` + `verify_patterns.ps1` + `.bat`，一键运行且不需 SOLIDWORKS；修正自检逻辑（只认边界判定器报出的违规，避免零孔场景假报通过），补反向用例（零孔假插件必须 exit 1） |
+| 2026-09-23 | 2a015a6 | 几何回归验证器并入仓库（`tools/verify/`）：`Harness.cs` + `verify_patterns.ps1` + `.bat`，一键运行且不需 SOLIDWORKS；修正自检逻辑（只认边界判定器报出的违规，避免零孔场景假报通过），补反向用例（零孔假插件必须 exit 1） |
 
 ## 待确认事项（2026-09-23 抽查发现）
 
