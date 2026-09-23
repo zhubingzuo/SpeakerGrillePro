@@ -24,3 +24,5 @@
 - `src/SpeakerGrillePro.cs` **未作任何改动**。
 
 2026-09-23 | cea4642 | HANDOFF.md 重写为精简交接文档（≤60 行）；本次会话全部进展已逐条存于上表，无信息丢失
+
+2026-09-23 | 820959b | 用户确认 SpaceMouse / 3Dconnexion 正常使用 —— v27.4 验证项全部闭合（编译 / 8 孔型几何回归 / 安装注册 / SOLIDWORKS 内功能 / 3Dconnexion）

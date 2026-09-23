@@ -32,12 +32,12 @@ build.bat && tools\verify\verify_patterns.bat     :: 非交互用 verify_pattern
   **恢复强名称密钥自动生成**（clone 后仍能一键安装）；`build.ps1` 缺目标包时自动 `FrameworkPathOverride`。
 - **修复 4 个 `.bat` 的 UTF-8 BOM**（自 v24 起存在）：cmd 按 GBK 把 `@echo off` 解成 `锘緻echo`，安装首行报错并回显全部命令。
 - **新增 `tools/verify/`** 几何回归工具（含判定器自检与"零孔必失败"反向用例）。
-- **验证结果**：编译 exit 0；回归 17 组 exit 0（0 越界 / 0 对称违规，自检 3/3，零孔假插件 exit 1）；
-  实机 `Registration verification: OK`，日志 `CONNECT_OK`、`FACE_FILTER 319/319`、`CUT_OK`。
+- **验证结果（全部通过）**：编译 exit 0；回归 17 组 exit 0（0 越界 / 0 对称违规，自检 3/3，零孔假插件 exit 1）；
+  实机安装 `Registration verification: OK`；运行时日志 `CONNECT_OK`、`FACE_FILTER 319/319`、`CUT_OK`；
+  用户确认 SOLIDWORKS 内使用正常，且 **SpaceMouse / 3Dconnexion 正常使用**（v27.4 的核心目的已验证）。
 
 ## 下一步 TODO
 
-- [ ] 确认 SpaceMouse / 3Dconnexion 单独可用（v27.4 的核心目的，日志无法体现）。
 - [ ] 补 `InsideConfiguredRegion` 等纯函数的参数化边界用例。
 - [ ] 可选：合并 `one_click_install.ps1` 与 `build.ps1` 重复的 Interop 探测。
 
