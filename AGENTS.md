@@ -112,7 +112,12 @@ uninstall_admin.bat     # 反注册
    继承管理员权限导致 3Dconnexion/3DxWare 无法通信）。
 6. **只注册/清理本插件自己的 GUID 与注册项**，绝不删除其他或旧插件的 Add-in 注册项。
 7. 保持 **C# 5 语法**；新增引用请沿用 `$(SldWorksInterop)` 等可注入属性，**不要在 csproj 里写死绝对路径**。
-8. 源码文件为 **UTF-8 带 BOM**（中文字面量依赖此编码，编辑时勿去 BOM）。
+8. 编码规则（改错会导致很难看出的故障，务必遵守）：
+   - `.cs` / `.csproj` / `.ps1`：**UTF-8 带 BOM**。中文字面量与 PowerShell 5.1 的读取都依赖它，编辑时勿去 BOM。
+   - `.bat`：**UTF-8 无 BOM，且保持纯 ASCII**。cmd.exe 按 GBK 解析批处理，文件开头的 BOM 会被解码成
+     `锘緻` 并吞掉行首的 `@`，使 `@echo off` 变成一个不存在的命令 —— 症状是安装一开始就报
+     `'锘緻echo' 不是内部或外部命令`，且因为 `@echo off` 未生效，整份脚本的命令会被逐条回显。
+   - `.md` / `.gitignore` / `LICENSE`：UTF-8 无 BOM。
 9. 孔阵列算法改动后需自查：左右/上下镜像对称、孔不越出区域边界、满足最小肉厚。
 10. **不要把 `TargetFrameworkVersion` 改成 v4.8**（已评估并否决，理由见 `HANDOFF.md`）：改它既修不了
     `MSB3644`（缺的是目标包），又只影响 MSBuild 路径、会让 csc 路径产出与之一致性不同的元数据。

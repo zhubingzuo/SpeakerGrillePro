@@ -72,14 +72,20 @@ MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；
   - `build.ps1`：Interop 探测扩展至全部固定磁盘 + 任意年份注册表；构建前预检 .NET 4.0 目标包，
     缺失时自动追加 `FrameworkPathOverride`（**不改目标框架**），并保留 MSBuild 候选依次尝试。
     已实测：正常构建 exit 0 且首次尝试即成功；故意破坏源码时正确报错并 exit 3（不再重复刷屏）。
-- 编译链路已验证可用；**v27.4 尚未做安装后的实机功能验收**。
+- **实机安装已通过**（用户以管理员运行 `一键安装.bat`）：自动探测命中 D 盘 SOLIDWORKS（`33.5.0.0053`），
+  csc 编译成功，RegAsm 注销/注册均成功，`Registration verification: OK`，退出码 0。
+  **尚待确认**的是安装后在 SOLIDWORKS 里实际生成孔的验收（功能层面）。
+- 🔧 4 个 `.bat` 已去掉文件开头的 UTF-8 BOM（本次修复）：cmd.exe 按 GBK 解析批处理，BOM 会把首行
+  `@echo off` 变成一个不存在的命令 —— 症状为安装一开始报 `'锘緻echo' 不是内部或外部命令`，
+  且整份脚本命令被逐条回显。已实测：带 BOM 复现、无 BOM 干净，真实 `一键安装.bat` / `build.bat` /
+  `install_admin.bat` / `uninstall_admin.bat` 均无该错误。该问题自 v24 公开仓库就存在。
 
 ## 下一步 TODO
 
-- [ ] 关闭 SOLIDWORKS 后跑一次 `一键安装.bat`，完成 v27.4 实机验收（重点：3Dconnexion/SpaceMouse 不再失效、启动无弹窗、喇叭图标正常）。
-- [ ] 实机验证 8 种孔型的边界与对称性，特别是第 7 种同心声波的最小肉厚约束是否生效。
-- [ ] 本机以管理员跑一次 `一键安装.bat`，验证改动后的完整安装链路（脚本前 4 步已单独验证，
-      第 5 步 RegAsm 注册需管理员权限，尚未在本轮实执）。
+- [ ] **功能验收（唯一剩余项）**：启动 SOLIDWORKS 确认工具栏叽叭图标、**启动无弹窗**、3Dconnexion/SpaceMouse
+      未失效；再建草图点实际生成孔，验证 8 种孔型的边界与对称性，特别是第 7 种同心声波的最小肉厚约束。
+- [x] ~~本机以管理员跑一次 `一键安装.bat` 验证完整安装链路~~ → **已完成**：自动探测、csc 编译、RegAsm
+      注销/注册、注册项校验全部通过（`Registration verification: OK`，exit 0）。
 - [x] ~~评估是否把 `csproj` 的 `TargetFrameworkVersion` 由 `v4.0` 改为 `v4.8`~~ → **已评估并否决**：
       实测 v4.8 仍报 `MSB3644`（本机 `Reference Assemblies` 下无任何 4.x 目标包），且 `TargetFrameworkVersion`
       只影响 MSBuild 路径、csc 路径不读它。已改用 `FrameworkPathOverride` 绕开，保留 v4.0 作兼容性护栏。
@@ -92,4 +98,5 @@ MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；
 - 语法上限 C# 5 / .NET Framework 4.0 / x64 / 强名称签名。
 - 安装器不得自动启动或强杀 SOLIDWORKS，也不得清理其他插件的注册项——这是 v27.4 的全部要点。
 - **公开仓库不得包含 `src\*.snk` 与 `bin\*.dll`**（安全/授权红线，详见 `AGENTS.md`「版本控制与发布」）。
+- **编码红线**：`.bat` 必须无 BOM 且纯 ASCII；`.cs` / `.csproj` / `.ps1` 必须保留 BOM（详见 `AGENTS.md` 约定 8）。
 - 详细约定见 `AGENTS.md`。

@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 setlocal
 cd /d "%~dp0"
 title SpeakerGrillePro v27.4 - 3Dconnexion Safe Installer

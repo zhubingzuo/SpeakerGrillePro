@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 setlocal
 cd /d "%~dp0"
 net session >nul 2>&1
@@ -21,5 +21,5 @@ if errorlevel 1 (
 )
 echo.
 echo Installed successfully.
-echo Start SOLIDWORKS 2025 ^> Tools ^> Add-Ins and enable "喇叭孔生成器" if it is not already enabled.
+echo Start SOLIDWORKS 2025 ^> Tools ^> Add-Ins and enable the speaker grille add-in if it is not already enabled.
 pause
