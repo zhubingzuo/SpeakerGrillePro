@@ -9,7 +9,11 @@
 //     * boundary  - every hole (using its OWN radius) must lie inside the configured region
 //     * symmetry  - every hole must have a mirror partner about x=0, y=0 and both axes
 //     * min web   - minimum edge-to-edge distance between neighbouring round holes (mm)
-//     * v0ang     - first vertex angle of the first polygon, reports hole orientation
+//     * shape     - the shape the add-in actually emits for polygon patterns, classified from the
+//                   recorded vertices: "square(axis-aligned)" / "diamond(45 deg)" / "hexagon" /
+//                   "triangle". NOTE: a first-vertex angle of 45 deg means an AXIS-ALIGNED square
+//                   (its edges are horizontal/vertical), not a rotated one - do not judge
+//                   orientation from that angle alone.
 //
 //   A self-test shrinks the check region on purpose and requires the checker to report
 //   violations. Without that step a silently broken checker would look like a clean pass.
@@ -76,7 +80,7 @@ class RunResult
     public int NoMirrorX, NoMirrorY, NoMirrorXY;
     public double MinWeb = double.MaxValue;
     public bool RoundHoles;
-    public string Orientaion = "-";
+    public string Shape = "-";
     public string StopNote = "";
     public bool ProducedGeometry;
 }
@@ -213,6 +217,38 @@ class Runner
         if (shapeMode == 7) { SetField(gs, g, "CircleDiameterMm", 60); SetField(gs, g, "CenterDiaMm", 2.2); SetField(gs, g, "MiddleDiaMm", 1.6); SetField(gs, g, "OuterDiaMm", 1.0); SetField(gs, g, "PitchMm", 3.0); SetInt(gs, g, "RegionMode", 1); }
     }
 
+    // Reconstructs the first polygon from its consecutive CreateLine endpoints and classifies it.
+    // CreateRegularPolygon emits (v0,v1), (v1,v2), ... so line i starts at vertex i.
+    static string DescribePolygon(List<double[]> lines, int sides)
+    {
+        if (lines.Count < sides || sides < 3) return "-";
+        double[] vx = new double[sides];
+        double[] vy = new double[sides];
+        for (int i = 0; i < sides; i++) { vx[i] = lines[i][0]; vy[i] = lines[i][1]; }
+        double cx = 0, cy = 0;
+        for (int i = 0; i < sides; i++) { cx += vx[i]; cy += vy[i]; }
+        cx /= sides; cy /= sides;
+
+        double maxAbs = 0;
+        for (int i = 0; i < sides; i++)
+            maxAbs = Math.Max(maxAbs, Math.Max(Math.Abs(vx[i] - cx), Math.Abs(vy[i] - cy)));
+
+        // Vertices at the corners of the bounding box -> axis-aligned square (each axis-aligned
+        // square has |dx| and |dy| equally large). Vertices on the box edge midpoints -> diamond.
+        int cornerLike = 0;
+        for (int i = 0; i < sides; i++)
+        {
+            double ax = Math.Abs(vx[i] - cx), ay = Math.Abs(vy[i] - cy);
+            if (Math.Min(ax, ay) > 0.25 * maxAbs) cornerLike++;
+        }
+
+        if (sides == 6) return "hexagon(flat-top)";
+        if (sides == 3) return "triangle";
+        if (sides == 4 && cornerLike == 4) return "square(axis-aligned)";
+        if (sides == 4 && cornerLike == 0) return "diamond(45 deg)";
+        return "quad(ambiguous," + cornerLike + ")";
+    }
+
     static bool MirrorExists(List<double[]> holes, double x, double y, double r)
     {
         const double tol = 1e-6;
@@ -331,11 +367,7 @@ class Runner
         if (r._lines.Count > 0)
         {
             int sides = shapeMode == 1 ? 6 : (shapeMode == 5 ? 3 : 4);
-            double sx = 0, sy = 0;
-            for (int k = 0; k < sides; k++) { sx += r._lines[k][0]; sy += r._lines[k][1]; }
-            double a0 = Math.Atan2(r._lines[0][1] - sy / sides, r._lines[0][0] - sx / sides) * 180.0 / Math.PI;
-            if (a0 < 0) a0 += 360.0;
-            res.Orientaion = F(a0);
+            res.Shape = DescribePolygon(r._lines, sides);
         }
         return res;
     }
@@ -359,7 +391,7 @@ class Program
             "  outside=" + r.Outside.ToString().PadLeft(4) +
             "  asym(x/y/xy)=" + r.NoMirrorX + "/" + r.NoMirrorY + "/" + r.NoMirrorXY +
             "  minWeb_mm=" + (r.RoundHoles && r.MinWeb != double.MaxValue ? Runner.Mm(r.MinWeb) : "n/a").PadLeft(6) +
-            "  v0ang=" + r.Orientaion.PadLeft(5) +
+            "  shape=" + r.Shape.PadRight(19) +
             (empty ? "   <<< NO GEOMETRY EMITTED" : (r.StopNote.Length > 0 ? "   [cut not simulated: " + r.StopNote + "]" : "")));
 
         if (r.Outside > 0)

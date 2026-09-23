@@ -37,15 +37,15 @@ build.bat && tools\verify\verify_patterns.bat     :: 非交互用 verify_pattern
 
 ## 下一步 TODO
 
-- [ ] 决定孔型 3「方形孔」/ 4「菱形孔」的朝向是否互换（见「当前的坑」第 1 条）。
 - [ ] 确认 SpaceMouse / 3Dconnexion 单独可用（v27.4 的核心目的，日志无法体现）。
 - [ ] 补 `InsideConfiguredRegion` 等纯函数的参数化边界用例。
 - [ ] 可选：合并 `one_click_install.ps1` 与 `build.ps1` 重复的 Interop 探测。
 
 ## 当前的坑
 
-1. **孔型 3/4 朝向与名称疑似互换**：`ShapeMode==3 ? Math.PI/4 : 0`，实测首顶点角 45° vs 0°，标签却为
-   `3=>"SQUARE" / 4=>"DIAMOND"`。外观问题，不影响边界与对称；未改。
+1. **勿用“首顶点角”判断多边形朝向**：顶点 45° 表示**边水平/垂直 = 轴对齐正方形**（方形孔，正确），
+   顶点 0° 才是菱形。`ShapeMode==3 ? Math.PI/4 : 0` 曾被误读为“3/4 朝向互换”；`tools/verify` 现已
+   直接分类形状，实测 `square(axis-aligned)` / `diamond(45 deg)` 与 UI 名称一致，**无需改动**。
 2. **插件内部以米为单位**（`Mm()` 除以 1000）。外部判定器或脚本必须换算，否则边界判定恒真（曾因此假通过）。
 3. **`.bat` 不得带 BOM 且须纯 ASCII；`.cs` / `.csproj` / `.ps1` 必须保留 BOM**（`AGENTS.md` 约定 8）。
 4. `one_click_install.ps1` 与 `build.ps1` 的 Interop 探测重复（改动需同步）；本机无 4.x 目标包，须保留 MSBuild 回退 / `FrameworkPathOverride`。
