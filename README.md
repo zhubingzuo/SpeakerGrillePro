@@ -305,10 +305,15 @@ SpeakerGrillePro                        ← 仓库根 = 项目根
   -v:minimal
 ```
 
-或直接 `build.bat` / `build.ps1`。两者都会在所有固定磁盘与注册表中探测 Interop，
-并依次尝试多个 MSBuild：VS Build Tools 的较新 MSBuild 会把“缺少 .NET Framework 4.0 目标包”
-（`MSB3644`）当成硬错误，此时会自动回退到 .NET Framework 自带的 MSBuild（它只当警告并
-改用 GAC 引用程序集），因此有无目标包都能编过。若仍失败，用 `build_manual.ps1` 手动指定路径。
+或直接 `build.bat` / `build.ps1`。两者的行为：
+
+- 在全部固定磁盘与注册表中探测 Interop，不再依赖盘符或写死的版本年份。
+- 构建前检测 **.NET Framework 4.0 目标包（引用程序集）** 是否存在。若缺失（新版开发工具已不再随附），
+  自动追加 `FrameworkPathOverride=<运行时目录>`，让引用解析改用运行时程序集（老版 MSBuild 本来就是
+  这么回退的）。**产物目标框架仍是 v4.0**，仅编译期参考来源不同。
+- MSBuild 候选依次尝试：VS Build Tools 的 MSBuild → .NET Framework 自带的 MSBuild（兜底）。
+
+若仍失败，用 `build_manual.ps1` 手动指定 Interop 路径。
 
 ---
 
@@ -351,8 +356,8 @@ CUT_OK ...
 - **不再删除**任何其他 / 旧插件的 SOLIDWORKS Add-in 注册项，只注册本插件自己的 GUID。
 - 🔧 **安装器**：自动探测 SOLIDWORKS 安装位置（多磁盘 + 注册表 + 可显式指定），不再硬编码盘符；
   缺少强名称密钥时自动生成（公开仓库不携带私钥，让 clone 后一键安装可用）。
-- 🔧 **构建脚本**：`build.ps1` 的 Interop 探测扩展到全部固定磁盘，并在缺少 .NET 4.0 目标包时
-  自动回退到 .NET Framework 自带的 MSBuild。
+- 🔧 **构建脚本**：`build.ps1` 的 Interop 探测扩展到全部固定磁盘；缺少 .NET 4.0 目标包时
+  自动启用 `FrameworkPathOverride`（目标框架保持 v4.0），并保留 .NET Framework 自带 MSBuild 兜底。
 
 ### v27.3
 - 工具栏「生成喇叭孔」按钮改为蓝色喇叭图标，提供 20/32/40/64/96/128 px 六档 PNG，适配高 DPI 缩放；CommandGroup ID 更新并在加载时清理旧组，避免缓存旧图标。
@@ -385,11 +390,15 @@ CUT_OK ...
 1. **生成前预览**：草图预览确认后再 Cut，避免反复撤销。
 2. **性能优化**：500+ / 1000+ 孔时批量创建 Sketch Segment、暂停刷新、减少 Select 调用。
 3. **自动化测试**：插件依赖 SOLIDWORKS 宿主进程，无法脱离宿主编译期单测；目前以“编译验证 + 实机验收”代替。
-4. **重新评估目标框架**：`csproj` 仍指向 .NET Framework 4.0，而 4.0 目标包已不随新版开发工具分发，
-   是 `MSB3644` 的根因；可考虑改为 v4.8。
+4. **目标框架：已评估，决定继续保留 v4.0，不改 v4.8。** 实测把 `TargetFrameworkVersion` 改成 `v4.8`
+   仍会报 `MSB3644`（`Reference Assemblies` 下一个 4.x 目标包都没有）——缺的是目标包，不是版本号；
+   而且 `TargetFrameworkVersion` 只影响 MSBuild 路径，一键安装器走的 `csc.exe` 并不读它，改了会让
+   两条构建路径产出不一致的元数据。现用 `FrameworkPathOverride` 绕开，并把 v4.0 当作最低公共分母的
+   兼容性护栏（防止误用只在新版框架里存在的 API）。除非同时改造 csc 构建路径，否则不动。
 
 已完成（原规划）：样式参数动态 UI（按孔型启用/停用参数）、更严格的 Face 边界检测、
-安装脚本与构建脚本去硬编码（多磁盘 / 注册表探测）、安装器自动生成强名称密钥。
+安装脚本与构建脚本去硬编码（多磁盘 / 注册表探测）、安装器自动生成强名称密钥、
+构建脚本在缺目标包时自动使用 `FrameworkPathOverride`。
 
 ---
 

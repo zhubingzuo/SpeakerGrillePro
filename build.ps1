@@ -118,11 +118,15 @@ if (Test-Path -LiteralPath $vswhere) {
 }
 # The .NET Framework MSBuild tolerates a missing .NET 4.0 targeting pack (it falls back to
 # the GAC reference assemblies), while newer VS MSBuild turns that same situation into the
-# hard error MSB3644. Keep both so the helper works whether or not the targeting pack exists.
-foreach ($f in @(
-    "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe",
-    "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe")) {
-    if (Test-Path -LiteralPath $f) { $msbuildCandidates.Add($f) }
+# hard error MSB3644. Keep it as a fallback for the case where FrameworkPathOverride cannot
+# help either. The 64-bit copy is used when present; the 32-bit one is only a last resort
+# (same MSBuild version, so keeping both would just add a redundant retry).
+$frameworkMsbuild64 = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe"
+$frameworkMsbuild32 = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe"
+if (Test-Path -LiteralPath $frameworkMsbuild64) {
+    $msbuildCandidates.Add($frameworkMsbuild64)
+} elseif (Test-Path -LiteralPath $frameworkMsbuild32) {
+    $msbuildCandidates.Add($frameworkMsbuild32)
 }
 $msbuildCandidates = @($msbuildCandidates | Select-Object -Unique)
 if ($msbuildCandidates.Count -eq 0) {
@@ -133,19 +137,50 @@ if ($msbuildCandidates.Count -eq 0) {
 
 Write-Host '[3/4] Building x64 Release...'
 $proj = Join-Path $root 'src\SpeakerGrillePro.csproj'
+$msbuildArgs = @(
+    $proj,
+    '/t:Rebuild',
+    '/p:Configuration=Release',
+    '/p:Platform=AnyCPU',
+    "/p:SldWorksInterop=$sld",
+    "/p:SwConstInterop=$swc",
+    "/p:SwPublishedInterop=$swp",
+    '/v:minimal'
+)
+
+# The .NET Framework 4.0 reference assemblies (the targeting pack) are no longer shipped with
+# current developer tools, and newer MSBuild reports that as the hard error MSB3644 instead of
+# falling back the way the old .NET Framework MSBuild does. When the pack is absent, point
+# reference resolution at the runtime assemblies with FrameworkPathOverride: the output still
+# targets v4.0, only where the compile-time references are read from changes. Deciding this up
+# front keeps the build output untouched (no output capture, so localized compiler messages are
+# not re-encoded).
+$frameworkOverrideDir = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
+if (-not (Test-Path -LiteralPath $frameworkOverrideDir)) {
+    $frameworkOverrideDir = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319'
+}
+
+$targetingPackPresent = $false
+foreach ($pfRoot in @(${env:ProgramFiles(x86)}, ${env:ProgramFiles})) {
+    if (-not $pfRoot) { continue }
+    if (Test-Path -LiteralPath (Join-Path $pfRoot 'Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0')) {
+        $targetingPackPresent = $true
+    }
+}
+
+if ($targetingPackPresent) {
+    Write-Host '  .NET Framework 4.0 targeting pack: found'
+} elseif (Test-Path -LiteralPath $frameworkOverrideDir) {
+    Write-Host '  .NET Framework 4.0 targeting pack: not installed' -ForegroundColor Yellow
+    Write-Host ('  Using FrameworkPathOverride=' + $frameworkOverrideDir + ' (target framework stays v4.0)') -ForegroundColor Yellow
+    $msbuildArgs += ('/p:FrameworkPathOverride=' + $frameworkOverrideDir)
+} else {
+    Write-Host '  .NET Framework 4.0 targeting pack: not installed, and no runtime directory was found.' -ForegroundColor Yellow
+}
+
 $built = $false
 foreach ($msbuild in $msbuildCandidates) {
     Write-Host ('  MSBuild: ' + $msbuild)
-    $msbuildArgs = @(
-        $proj,
-        '/t:Rebuild',
-        '/p:Configuration=Release',
-        '/p:Platform=AnyCPU',
-        "/p:SldWorksInterop=$sld",
-        "/p:SwConstInterop=$swc",
-        "/p:SwPublishedInterop=$swp",
-        '/v:minimal'
-    )
     & $msbuild @msbuildArgs
     if ($LASTEXITCODE -eq 0) { $built = $true; break }
     Write-Host ''

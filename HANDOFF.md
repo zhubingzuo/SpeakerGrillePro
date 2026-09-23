@@ -33,9 +33,10 @@
 - 在 Git Bash 中执行时需加 `MSYS_NO_PATHCONV=1`，否则 `/t:`、`/p:` 会被 MSYS 改写成路径。
 
 `build.bat` / `build.ps1` 现已可用（本机 exit 0）：Interop 探测已扩展到全部固定磁盘 + 注册表
-（任意 `SOLIDWORKS 20xx` 年份），并会依次尝试多个 MSBuild——VS Build Tools 的 MSBuild 会把缺少
-.NET 4.0 目标包当成硬错误 `MSB3644`，脚本会自动回退到 .NET Framework 自带的 MSBuild 并成功编译。
-备用方案仍为 `build_manual.ps1`（手动粘贴 Interop 路径）。
+（任意 `SOLIDWORKS 20xx` 年份）。构建前检测 .NET 4.0 目标包，本机缺失，因此自动追加
+`FrameworkPathOverride=C:\WINDOWS\Microsoft.NET\Framework64\v4.0.30319`，使 VS Build Tools 的
+MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；产物目标框架仍为 v4.0。
+若 `FrameworkPathOverride` 也无能为力，仍会依次尝试其他 MSBuild 候选。备用方案：`build_manual.ps1`。
 
 ### 2. 实机验收（需人工）
 
@@ -68,8 +69,9 @@
     **恢复了强名称密钥自动生成**（缺 `src\SpeakerGrillePro.snk` 时用 CAPI `AT_SIGNATURE` 生成）。
     已实测：探测函数能正确找到本机 D 盘 SOLIDWORKS 与三个 Interop DLL；生成的 .snk 为 1172 字节
     （与出厂密钥同格式），csc 接受并签出强名称程序集。
-  - `build.ps1`：Interop 探测扩展至全部固定磁盘 + 任意年份注册表；MSBuild 候选改为依次尝试。
-    已实测 exit 0：VS MSBuild 失败后自动回退到 `Framework64\v4.0.30319\MSBuild.exe` 成功编译。
+  - `build.ps1`：Interop 探测扩展至全部固定磁盘 + 任意年份注册表；构建前预检 .NET 4.0 目标包，
+    缺失时自动追加 `FrameworkPathOverride`（**不改目标框架**），并保留 MSBuild 候选依次尝试。
+    已实测：正常构建 exit 0 且首次尝试即成功；故意破坏源码时正确报错并 exit 3（不再重复刷屏）。
 - 编译链路已验证可用；**v27.4 尚未做安装后的实机功能验收**。
 
 ## 下一步 TODO
@@ -78,8 +80,9 @@
 - [ ] 实机验证 8 种孔型的边界与对称性，特别是第 7 种同心声波的最小肉厚约束是否生效。
 - [ ] 本机以管理员跑一次 `一键安装.bat`，验证改动后的完整安装链路（脚本前 4 步已单独验证，
       第 5 步 RegAsm 注册需管理员权限，尚未在本轮实执）。
-- [ ] 评估是否把 `csproj` 的 `TargetFrameworkVersion` 由 `v4.0` 改为 `v4.8`：4.0 目标包已不随新版
-      开发工具分发，是 `MSB3644` 的根因（当前靠 MSBuild 回退绕过）。
+- [x] ~~评估是否把 `csproj` 的 `TargetFrameworkVersion` 由 `v4.0` 改为 `v4.8`~~ → **已评估并否决**：
+      实测 v4.8 仍报 `MSB3644`（本机 `Reference Assemblies` 下无任何 4.x 目标包），且 `TargetFrameworkVersion`
+      只影响 MSBuild 路径、csc 路径不读它。已改用 `FrameworkPathOverride` 绕开，保留 v4.0 作兼容性护栏。
 - [ ] 是否恢复原仓库的 `docs\LOG.md`（会话历史存档）惯例：原始内容已归档在 `_old_repo_archive\docs\LOG.md`，目前**未**纳入仓库。
 - [ ] 若后续需要版本迭代，建议在 README.md 中继续沿用“版本号 + 改动说明”的写法。
 

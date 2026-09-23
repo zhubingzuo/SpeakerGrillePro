@@ -71,8 +71,9 @@ SOLIDWORKS 插件（Add-in），在选定的平面/面上按 8 种阵列样式�
 产物：`bin\SpeakerGrillePro.dll`。
 
 > ✅ `build.bat` / `build.ps1` 亦可直接使用（已去硬编码）：Interop 探测覆盖全部固定磁盘与任意
-> `SOLIDWORKS 20xx` 注册表年份；MSBuild 候选依次尝试，会自动回退到能容忍缺少 .NET 4.0 目标包的
-> `Framework64\v4.0.30319\MSBuild.exe`。需要手动指定时用 `build_manual.ps1`。
+> `SOLIDWORKS 20xx` 注册表年份；构建前会检查 .NET Framework 4.0 目标包，缺失时自动追加
+> `FrameworkPathOverride=<运行时目录>`（**目标框架保持 v4.0 不变**），并保留 .NET Framework 自带的
+> MSBuild 作为兜底。需要手动指定时用 `build_manual.ps1`。
 >
 > 安装器侧同理：`one_click_install.ps1` 自动探测 SOLIDWORKS，可用 `-SolidWorksPath <exe|目录>`
 > 或环境变量 `SPEAKERGRILLE_SW_EXE` 覆盖；`src\SpeakerGrillePro.snk` 缺失时会自动生成。
@@ -113,3 +114,5 @@ uninstall_admin.bat     # 反注册
 7. 保持 **C# 5 语法**；新增引用请沿用 `$(SldWorksInterop)` 等可注入属性，**不要在 csproj 里写死绝对路径**。
 8. 源码文件为 **UTF-8 带 BOM**（中文字面量依赖此编码，编辑时勿去 BOM）。
 9. 孔阵列算法改动后需自查：左右/上下镜像对称、孔不越出区域边界、满足最小肉厚。
+10. **不要把 `TargetFrameworkVersion` 改成 v4.8**（已评估并否决，理由见 `HANDOFF.md`）：改它既修不了
+    `MSB3644`（缺的是目标包），又只影响 MSBuild 路径、会让 csc 路径产出与之一致性不同的元数据。
