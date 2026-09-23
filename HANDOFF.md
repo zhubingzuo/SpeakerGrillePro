@@ -48,30 +48,36 @@ MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；
 6. 复查：孔未越出区域边界、左右/上下镜像对称、含"同心声波"时肉厚 ≥ 设定值。
 7. 若异常，查看 `bin\SpeakerGrillePro_runtime.log`。
 
-### 3. 孔型几何自动抽查（可选，无需 SOLIDWORKS）
+### 3. 孔型几何回归抽查（不需 SOLIDWORKS）
 
-用于回归验证 8 种孔型的边界与对称性。原理：调用真实 `bin\SpeakerGrillePro.dll` 里的 `CreateGrille`，
-用 `RealProxy` 桩化 SOLIDWORKS API（假面永远返回“点在面上”，把区域约束单独隔出来），
-记录每次 `SketchManager.CreateCircleByRadius` / `CreateLine` 调用的坐标，再做独立几何判定。
-
-工具位置（**不在仓库内**，属本地验证器）：`K:\BaiduSyncdisk\C#\solidwork喇叭孔\_verify\Harness.cs`
+自包含：自动编译验证器并跑完 17 组用例。
 
 ```bat
-copy bin\SolidWorks.Interop.*.dll "<verify>"
-"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:exe /platform:x64 ^
-  /out:"<verify>\harness.exe" "<verify>\Harness.cs" ^
-  /reference:bin\SolidWorks.Interop.sldworks.dll /reference:bin\SolidWorks.Interop.swconst.dll ^
-  /reference:bin\SolidWorks.Interop.swpublished.dll
-"<verify>\harness.exe" "<项目根>\bin\SpeakerGrillePro.dll"
+tools\verify\verify_patterns.bat                                        :: 双击，结尾 pause
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\verify\verify_patterns.ps1   :: 非交互
 ```
 
-关键实现细节（重做时容易踩坑，已踩过）：
+前提：先跑过 `build.bat` 或 `一键安装.bat`（需要 `bin\SpeakerGrillePro.dll` 与三个 Interop DLL 就位）。
+
+- 覆盖：8 种孔型 × 圆角矩形/圆形区域 + `EdgeSkipPercent=15` 跳孔对称探测 + 验证器自检 = 17 组。
+- 判定：配置区域边界（每个孔用**自身半径**）、关于 x=0 / y=0 / 双轴的镜像对称；
+  圆孔类另报最小孔间肉厚（孔型 6 应 ≥ 设定值）。
+- 退出码：`0` 全部通过；`1` 有违规或某次没生成任何孔；`2` 前置条件缺失；`3` 验证器编译失败。
+- **不覆盖**：真实 Face / 裁剪开口的过滤（桩面恒答“点在面上”）、切除是否成功、SOLIDWORKS 内渲染效果。
+
+文件：`tools/verify/Harness.cs`（判定器）、`verify_patterns.ps1`（编译+运行）、`verify_patterns.bat`（入口）、
+`obj/`（编译产物，已忽略）。
+
+关键实现细节（重做时容易踩坑，都已踩过）：
 
 - `Face2` 与 `Entity` 是**互不继承**的接口，插件里 `(Entity)face` 靠运行时同时实现两者才成立；
   透明代理必须声明 `interface IFakeFace : Face2, Entity { }`，否则强转 `InvalidCastException`。
 - 插件内部以**米**为单位（`Mm()` 除以 1000），独立判定器必须同样换算，否则边界判定恒真（假通过）。
-- 必须带“验证器自检”（故意缩小检查区域必须报违规），否则无法区分“真的合规”与“判定器失效”。
-- 切刺步骤在桩下必然失败，但异常发生在**孔全部写入之后**，捕获后仍保留已记录的孔集。
+- **自检只能认“边界判定器报了违规”**，不能把“任何失败”当作自检通过（否则零孔场景会假报 OK）。
+- **反向用例**：用不产生任何孔的假插件（`_verify\FakeAddin.dll`）跑一次，必须 exit 1；
+  否则说明“没生成孔”会被当成通过。
+- 切除步骤在桩下必然失败，但异常发生在**孔全部写入之后**，捕获后仍保留已记录的孔集。
+- 每次运行会向 `bin\SpeakerGrillePro_runtime.log` 追加诊断（该文件已忽略）。
 
 ## 当前状态
 
@@ -104,9 +110,9 @@ copy bin\SolidWorks.Interop.*.dll "<verify>"
     `AddCommandManager ENTER` → `CommandManager creation OK` → `CONNECT_OK`（**静默启动，未弹窗**），
     随后 `FACE_FILTER candidates=319, kept=319, rejected=0` 与 `CUT_OK active-sketch-featurecut3: SpeakerGrille_Cut`
     （成功生成并切除一个 319 孔的阵列，边界过滤无剔除）。
-- **8 种孔型几何自动抽查完成（2026-09-23）**：15 组用例（8 孔型 × 圆角矩形/圆形区域，
-  另含 `EdgeSkipPercent=15` 的跳孔对称探测）结果均为 **0 边界违规、0 镜像对称违规**；
-  验证器自检通过（把检查区域缩到 25% 时能报出 418/427、318/319、330/349 个违规）。
+- **8 种孔型几何回归抽查完成（2026-09-23）**：已并入仓库为 `tools/verify/`（一键运行）。
+  17 组用例（8 孔型 × 圆角矩形/圆形区域，另含 `EdgeSkipPercent=15` 跳孔对称探测）结果均为
+  **0 边界违规、0 镜像对称违规**；验证器自检 3/3 命中，反向用例（零孔假插件）exit 1。
   同心声波（孔型 6）实测最小孔间肉厚 1.228 / 1.243 mm ≥ 设定的 1.20 mm，v27.3 的硬约束成立。
   圆孔类最小肉厚：孔型 0 = 1.000 mm，孔型 2 = 1.100 mm，孔型 7 = 0.815 mm。
 - 🔧 4 个 `.bat` 已去掉文件开头的 UTF-8 BOM（本次修复）：cmd.exe 按 GBK 解析批处理，BOM 会把首行

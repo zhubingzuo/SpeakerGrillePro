@@ -260,6 +260,11 @@ SpeakerGrillePro                        ← 仓库根 = 项目根
 │  ├─ SpeakerGrillePro_runtime.log      #   运行时日志
 │  └─ SolidWorks.Interop.*.dll          #   SOLIDWORKS 引用程序集（本机复制，不入库）
 │
+├─ tools/verify/                        # 孔型几何回归验证器（不需 SOLIDWORKS）
+│  ├─ Harness.cs                        #   桩化 SOLIDWORKS API，检查边界/镜像对称/最小肉厚
+│  ├─ verify_patterns.ps1 / .bat        #   一键编译并运行
+│  └─ obj/                              #   编译产物（不入库）
+│
 ├─ AGENTS.md                            # 项目约定与模块地图（给 AI/协作者）
 ├─ HANDOFF.md                           # 交接文档：目标 / 测试命令 / 状态 / TODO
 ├─ CLAUDE.md                            # → @AGENTS.md
@@ -314,6 +319,16 @@ SpeakerGrillePro                        ← 仓库根 = 项目根
 - MSBuild 候选依次尝试：VS Build Tools 的 MSBuild → .NET Framework 自带的 MSBuild（兜底）。
 
 若仍失败，用 `build_manual.ps1` 手动指定 Interop 路径。
+
+### 几何回归（改了孔阵算法后必跑）
+
+```bat
+build.bat                            :: 先确保 bin\SpeakerGrillePro.dll 是最新的
+tools\verify\verify_patterns.bat
+```
+
+桩化 SOLIDWORKS API 调用真实 `bin\SpeakerGrillePro.dll`，检查 8 种孔型的区域边界、镜像对称与最小孔间肉厚，
+**不需启动 SOLIDWORKS**。详见 `HANDOFF.md` 测试命令第 3 节。
 
 ---
 
@@ -392,7 +407,9 @@ CUT_OK ...
 
 1. **生成前预览**：草图预览确认后再 Cut，避免反复撤销。
 2. **性能优化**：500+ / 1000+ 孔时批量创建 Sketch Segment、暂停刷新、减少 Select 调用。
-3. **自动化测试**：插件依赖 SOLIDWORKS 宿主进程，无法脱离宿主编译期单测；目前以“编译验证 + 实机验收”代替。
+3. **自动化测试**：插件依赖 SOLIDWORKS 宿主进程，无法在宿主体内做常规单测；目前用两条互补手段替代：
+   `tools/verify/` 的几何回归（桩化宿主 API，覆盖 8 种孔型的区域边界、镜像对称与最小肉厚，不需 SOLIDWORKS）
+   ＋ 实机验收（真实 Face 过滤、切除、渲染）。可补充的是对 `InsideConfiguredRegion` 等纯函数的参数化边界用例。
 4. **目标框架：已评估，决定继续保留 v4.0，不改 v4.8。** 实测把 `TargetFrameworkVersion` 改成 `v4.8`
    仍会报 `MSB3644`（`Reference Assemblies` 下一个 4.x 目标包都没有）——缺的是目标包，不是版本号；
    而且 `TargetFrameworkVersion` 只影响 MSBuild 路径，一键安装器走的 `csc.exe` 并不读它，改了会让

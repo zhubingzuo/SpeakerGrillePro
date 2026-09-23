@@ -78,6 +78,19 @@ SOLIDWORKS 插件（Add-in），在选定的平面/面上按 8 种阵列样式�
 > 安装器侧同理：`one_click_install.ps1` 自动探测 SOLIDWORKS，可用 `-SolidWorksPath <exe|目录>`
 > 或环境变量 `SPEAKERGRILLE_SW_EXE` 覆盖；`src\SpeakerGrillePro.snk` 缺失时会自动生成。
 
+### 孔型几何回归（不需 SOLIDWORKS）
+
+改动孔阵算法后必跑。它用 `RealProxy` 桩化 SOLIDWORKS API 调用真实 `bin\SpeakerGrillePro.dll`
+的 `CreateGrille`，记录每个孔的坐标/半径，再独立判定区域边界与镜像对称（详见 `HANDOFF.md` 测试命令第 3 节）。
+
+```bat
+build.bat                      :: 先确保 bin\SpeakerGrillePro.dll 已更新
+tools\verify\verify_patterns.bat
+```
+
+约定：**不得为了让验证通过而放宽 `Harness.cs` 的判定**；自检（故意缩小检查区域必须报违规）
+与反向用例（零孔假插件必须 exit 1）是工具可信度的前提，不能删。
+
 ### 安装 / 卸载（需管理员权限）
 
 ```text
