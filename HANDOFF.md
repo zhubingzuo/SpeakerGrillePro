@@ -1,7 +1,7 @@
 # HANDOFF.md — SpeakerGrillePro
 
-> 最近更新：发布到 GitHub（强制替换 v24 历史）+ 仓库根扁平化
-> 最新 commit：`c962615` — 项目初始化
+> 最近更新：v27.4 实机验收完成（2026-09-23）—— 安装链路与 SOLIDWORKS 内功能均通过
+> 最新 commit：`<本次提交后回填>`
 
 ## 任务目标
 
@@ -72,9 +72,13 @@ MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；
   - `build.ps1`：Interop 探测扩展至全部固定磁盘 + 任意年份注册表；构建前预检 .NET 4.0 目标包，
     缺失时自动追加 `FrameworkPathOverride`（**不改目标框架**），并保留 MSBuild 候选依次尝试。
     已实测：正常构建 exit 0 且首次尝试即成功；故意破坏源码时正确报错并 exit 3（不再重复刷屏）。
-- **实机安装已通过**（用户以管理员运行 `一键安装.bat`）：自动探测命中 D 盘 SOLIDWORKS（`33.5.0.0053`），
-  csc 编译成功，RegAsm 注销/注册均成功，`Registration verification: OK`，退出码 0。
-  **尚待确认**的是安装后在 SOLIDWORKS 里实际生成孔的验收（功能层面）。
+- **实机验收已完成（2026-09-23）**：
+  - 安装：用户以管理员运行 `一键安装.bat`，自动探测命中 D 盘 SOLIDWORKS（`33.5.0.0053`），csc 编译成功，
+    RegAsm 注销/注册成功，`Registration verification: OK`，退出码 0；重跑后批处理输出已完全干净（无 BOM 报错、无命令回显）。
+  - 功能：用户确认在 SOLIDWORKS 中使用正常。`bin\SpeakerGrillePro_runtime.log` 证据：
+    `AddCommandManager ENTER` → `CommandManager creation OK` → `CONNECT_OK`（**静默启动，未弹窗**），
+    随后 `FACE_FILTER candidates=319, kept=319, rejected=0` 与 `CUT_OK active-sketch-featurecut3: SpeakerGrille_Cut`
+    （成功生成并切除一个 319 孔的阵列，边界过滤无剔除）。
 - 🔧 4 个 `.bat` 已去掉文件开头的 UTF-8 BOM（本次修复）：cmd.exe 按 GBK 解析批处理，BOM 会把首行
   `@echo off` 变成一个不存在的命令 —— 症状为安装一开始报 `'锘緻echo' 不是内部或外部命令`，
   且整份脚本命令被逐条回显。已实测：带 BOM 复现、无 BOM 干净，真实 `一键安装.bat` / `build.bat` /
@@ -82,8 +86,10 @@ MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；
 
 ## 下一步 TODO
 
-- [ ] **功能验收（唯一剩余项）**：启动 SOLIDWORKS 确认工具栏叽叭图标、**启动无弹窗**、3Dconnexion/SpaceMouse
-      未失效；再建草图点实际生成孔，验证 8 种孔型的边界与对称性，特别是第 7 种同心声波的最小肉厚约束。
+- [x] ~~功能验收~~ → **已完成（2026-09-23）**：用户确认 SOLIDWORKS 中正常使用；运行日志确认静默启动成功、
+      成功生成并切除 319 孔阵列。
+- [ ] 待补充确认：**3Dconnexion / SpaceMouse 是否仍正常**（这是 v27.4 的全部意义所在，但 08:30 的日志无法体现）；
+      以及 8 种孔型的边界/对称性逐个抽查（日志只能证明跑过一种）。
 - [x] ~~本机以管理员跑一次 `一键安装.bat` 验证完整安装链路~~ → **已完成**：自动探测、csc 编译、RegAsm
       注销/注册、注册项校验全部通过（`Registration verification: OK`，exit 0）。
 - [x] ~~评估是否把 `csproj` 的 `TargetFrameworkVersion` 由 `v4.0` 改为 `v4.8`~~ → **已评估并否决**：
