@@ -1,6 +1,6 @@
 # HANDOFF.md — SpeakerGrillePro
 
-> 最近更新：v27.4 实机验收完成（2026-09-23）—— 安装链路与 SOLIDWORKS 内功能均通过
+> 最近更新：8 种孔型边界/对称性自动抽查完成 + 恢复 docs/LOG.md（2026-09-23）
 > 最新 commit：`dc5574a` — docs: 记录 v27.4 实机验收完成
 
 ## 任务目标
@@ -48,6 +48,31 @@ MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；
 6. 复查：孔未越出区域边界、左右/上下镜像对称、含"同心声波"时肉厚 ≥ 设定值。
 7. 若异常，查看 `bin\SpeakerGrillePro_runtime.log`。
 
+### 3. 孔型几何自动抽查（可选，无需 SOLIDWORKS）
+
+用于回归验证 8 种孔型的边界与对称性。原理：调用真实 `bin\SpeakerGrillePro.dll` 里的 `CreateGrille`，
+用 `RealProxy` 桩化 SOLIDWORKS API（假面永远返回“点在面上”，把区域约束单独隔出来），
+记录每次 `SketchManager.CreateCircleByRadius` / `CreateLine` 调用的坐标，再做独立几何判定。
+
+工具位置（**不在仓库内**，属本地验证器）：`K:\BaiduSyncdisk\C#\solidwork喇叭孔\_verify\Harness.cs`
+
+```bat
+copy bin\SolidWorks.Interop.*.dll "<verify>"
+"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:exe /platform:x64 ^
+  /out:"<verify>\harness.exe" "<verify>\Harness.cs" ^
+  /reference:bin\SolidWorks.Interop.sldworks.dll /reference:bin\SolidWorks.Interop.swconst.dll ^
+  /reference:bin\SolidWorks.Interop.swpublished.dll
+"<verify>\harness.exe" "<项目根>\bin\SpeakerGrillePro.dll"
+```
+
+关键实现细节（重做时容易踩坑，已踩过）：
+
+- `Face2` 与 `Entity` 是**互不继承**的接口，插件里 `(Entity)face` 靠运行时同时实现两者才成立；
+  透明代理必须声明 `interface IFakeFace : Face2, Entity { }`，否则强转 `InvalidCastException`。
+- 插件内部以**米**为单位（`Mm()` 除以 1000），独立判定器必须同样换算，否则边界判定恒真（假通过）。
+- 必须带“验证器自检”（故意缩小检查区域必须报违规），否则无法区分“真的合规”与“判定器失效”。
+- 切刺步骤在桩下必然失败，但异常发生在**孔全部写入之后**，捕获后仍保留已记录的孔集。
+
 ## 当前状态
 
 - **仓库根 = 项目根**（扁平结构）。本地路径：
@@ -79,6 +104,11 @@ MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；
     `AddCommandManager ENTER` → `CommandManager creation OK` → `CONNECT_OK`（**静默启动，未弹窗**），
     随后 `FACE_FILTER candidates=319, kept=319, rejected=0` 与 `CUT_OK active-sketch-featurecut3: SpeakerGrille_Cut`
     （成功生成并切除一个 319 孔的阵列，边界过滤无剔除）。
+- **8 种孔型几何自动抽查完成（2026-09-23）**：15 组用例（8 孔型 × 圆角矩形/圆形区域，
+  另含 `EdgeSkipPercent=15` 的跳孔对称探测）结果均为 **0 边界违规、0 镜像对称违规**；
+  验证器自检通过（把检查区域缩到 25% 时能报出 418/427、318/319、330/349 个违规）。
+  同心声波（孔型 6）实测最小孔间肉厚 1.228 / 1.243 mm ≥ 设定的 1.20 mm，v27.3 的硬约束成立。
+  圆孔类最小肉厚：孔型 0 = 1.000 mm，孔型 2 = 1.100 mm，孔型 7 = 0.815 mm。
 - 🔧 4 个 `.bat` 已去掉文件开头的 UTF-8 BOM（本次修复）：cmd.exe 按 GBK 解析批处理，BOM 会把首行
   `@echo off` 变成一个不存在的命令 —— 症状为安装一开始报 `'锘緻echo' 不是内部或外部命令`，
   且整份脚本命令被逐条回显。已实测：带 BOM 复现、无 BOM 干净，真实 `一键安装.bat` / `build.bat` /
@@ -95,7 +125,12 @@ MSBuild v18 第一次尝试即编译成功（不再需要退到老 MSBuild）；
 - [x] ~~评估是否把 `csproj` 的 `TargetFrameworkVersion` 由 `v4.0` 改为 `v4.8`~~ → **已评估并否决**：
       实测 v4.8 仍报 `MSB3644`（本机 `Reference Assemblies` 下无任何 4.x 目标包），且 `TargetFrameworkVersion`
       只影响 MSBuild 路径、csc 路径不读它。已改用 `FrameworkPathOverride` 绕开，保留 v4.0 作兼容性护栏。
-- [ ] 是否恢复原仓库的 `docs\LOG.md`（会话历史存档）惯例：原始内容已归档在 `_old_repo_archive\docs\LOG.md`，目前**未**纳入仓库。
+- [x] ~~是否恢复原仓库的 `docs\LOG.md`（会话历史存档）惯例~~ → **已恢复**：`docs/LOG.md`，
+      保留原 v24 条目并补全本次全部条目。
+- [ ] **孔型 3「方形孔」与孔型 4「菱形孔」的朝向与名称疑似互换**（抽查发现，需你决定）：
+      代码为 `ShapeMode == 3 ? Math.PI/4 : 0`，实测首顶点角 孔型 3 = **45°**（视觉为菱形）、
+      孔型 4 = **0°**（视觉为方形），但日志标签为 `3 ? "SQUARE" : "DIAMOND"` 与 UI 名称一致。
+      属外观/命名问题，**不影响边界与对称性**；修改会改变用户已习惯的观感，故未自行改动。
 - [ ] 若后续需要版本迭代，建议在 README.md 中继续沿用“版本号 + 改动说明”的写法。
 
 ## 关键背景（避免踩坑）
